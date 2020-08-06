@@ -88,6 +88,7 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/mitchellh/reflectwalk v1.0.1 // indirect
 	github.com/nwaples/rardecode v1.0.0 // indirect
+	github.com/onsi/ginkgo v1.13.0
 	github.com/onsi/gomega v1.10.1
 	github.com/openshift/api v0.0.0-20200713203337-b2494ecb17dd
 	github.com/opentracing/opentracing-go v1.2.0
