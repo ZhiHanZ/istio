@@ -3,21 +3,23 @@ package e2e_taint
 import (
 	"context"
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"istio.io/istio/cni/pkg/taint"
-	v12 "k8s.io/api/apps/v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/yaml"
-	client "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	v12 "k8s.io/api/apps/v1"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/yaml"
+	client "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
+
+	"istio.io/istio/cni/pkg/taint"
 )
 
 const (
@@ -99,7 +101,7 @@ func buildConfigIfNotExists(clientSet client.Interface, options taint.Options, f
 	err = clientSet.CoreV1().ConfigMaps(options.ConfigNameSpace).Delete(context.TODO(), options.ConfigName, metav1.DeleteOptions{})
 	fmt.Println(filepath.Abs("./"))
 	currpath, err := filepath.Abs("./")
-	cmd := exec.Command("kubectl", "create", "configmap", options.ConfigName, "-n", options.ConfigNameSpace, "--from-file="+fmt.Sprintf("%s\\%s\\", currpath, fileLocation))
+	cmd := exec.Command("kubectl", "create", "configmap", options.ConfigName, "-n", options.ConfigNameSpace, "--from-file="+fmt.Sprintf("%s/%s/", currpath, fileLocation))
 	fmt.Println(cmd.String())
 	err = cmd.Run()
 	configmap, err = clientSet.CoreV1().ConfigMaps(options.ConfigNameSpace).Get(context.TODO(), options.ConfigName, metav1.GetOptions{})
@@ -157,7 +159,7 @@ var _ = Describe("test on multiple labels in two namespace", func() {
 			ConfigName:      "multi",
 			ConfigNameSpace: "default",
 		}
-		configmap, _ := buildConfigIfNotExists(clientSet, *TaintOptions, "testdata\\multiConfig")
+		configmap, _ := buildConfigIfNotExists(clientSet, *TaintOptions, "testdata/multiConfig")
 		fmt.Println(configmap.Data)
 		taintSetter, err := taint.NewTaintSetter(clientSet, TaintOptions)
 		if err != nil {
@@ -231,7 +233,7 @@ var _ = Describe("[taint-controller features] single case", func() {
 			ConfigName:      "single",
 			ConfigNameSpace: "default",
 		}
-		_, _ = buildConfigIfNotExists(clientSet, *TaintOptions, "testdata\\singleConfig")
+		_, _ = buildConfigIfNotExists(clientSet, *TaintOptions, "testdata/singleConfig")
 		taintSetter, err := taint.NewTaintSetter(clientSet, TaintOptions)
 		if err != nil {
 			log.Fatalf("Could not construct taint setter: %s", err)

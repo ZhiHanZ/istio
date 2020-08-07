@@ -160,8 +160,14 @@ func TestTaintSetter_ListCandidatePods(t *testing.T) {
 				return
 			}
 			if gotItems := gotList.Items; gotItems != nil {
-				if !reflect.DeepEqual(gotItems, tt.wantList.Items) {
-					t.Errorf("ListBrokenPods() gotList = %v, want %v", gotItems, tt.wantList.Items)
+				podsSet := make(map[string]bool)
+				for _, item := range gotItems {
+					podsSet[item.String()] = true
+				}
+				for _, item := range tt.wantList.Items {
+					if _, ok := podsSet[item.String()]; !ok {
+						t.Errorf("ListBrokenPods() not have %s", item.String())
+					}
 				}
 			}
 
@@ -798,7 +804,7 @@ func TestTaintSetter_GetCriticalLabels(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   []string
+		want   map[string]bool
 	}{
 		{
 			name: "working pod test",
@@ -809,7 +815,7 @@ func TestTaintSetter_GetCriticalLabels(t *testing.T) {
 				workingPod,
 				istiocniConfig,
 			},
-			want: []string{"app=istio"},
+			want: map[string]bool{"app=istio": true},
 		},
 		{
 			name: "working pod with one label defined in configmap",
@@ -820,7 +826,7 @@ func TestTaintSetter_GetCriticalLabels(t *testing.T) {
 				workingPod,
 				multiLabelInOneConfig,
 			},
-			want: []string{"app=istio"},
+			want: map[string]bool{"app=istio": true},
 		},
 		{
 			name: "working pod with several labels",
@@ -831,7 +837,18 @@ func TestTaintSetter_GetCriticalLabels(t *testing.T) {
 				workingPodWithMultipleLabels,
 				multiLabelInOneConfig,
 			},
-			want: []string{"app=istio", "critical=others"},
+			want: map[string]bool{"app=istio": true, "critical=others": true},
+		},
+		{
+			name: "working pod with several labels",
+			fields: fields{
+				client: fakeClientset([]v1.Pod{workingPod, irelevantPod, othersPod, notReadyPod, workingPodWithMultipleLabels}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+			},
+			args: args{
+				workingPodWithMultipleLabels,
+				multiLabelsConfig,
+			},
+			want: map[string]bool{"app=istio": true, "critical=others": true},
 		},
 		{
 			name: "working pod with no labels",
@@ -842,7 +859,7 @@ func TestTaintSetter_GetCriticalLabels(t *testing.T) {
 				irelevantPod,
 				multiLabelInOneConfig,
 			},
-			want: []string{},
+			want: map[string]bool{},
 		},
 	}
 	for _, tt := range tests {
@@ -852,10 +869,14 @@ func TestTaintSetter_GetCriticalLabels(t *testing.T) {
 			}
 			ts.LoadConfig(tt.args.config)
 			labels := ts.GetCriticalLabels(tt.args.pod)
-			if !reflect.DeepEqual(sort.StringSlice(labels), sort.StringSlice(tt.want)) {
-				t.Errorf("got %v, actually %v", labels, tt.want)
+			if len(labels) != len(tt.want) {
+				t.Errorf("expected to get %v labels, actually get %v", len(tt.want), len(labels))
 			}
-
+			for _, label := range labels{
+				if _, ok := tt.want[label]; !ok {
+					t.Errorf("got %v, actually %v", labels, tt.want)
+				}
+			}
 		})
 	}
 }

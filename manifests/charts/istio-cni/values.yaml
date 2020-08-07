@@ -46,6 +46,9 @@ cni:
     brokenPodLabelKey: "cni.istio.io/uninitialized"
     brokenPodLabelValue: "true"
 
+  taint:
+    enabled: false
+
 global:
   # Default hub for Istio images.
   # Releases are published to docker hub under 'istio' project.
