@@ -139,8 +139,6 @@ spec:
 {{- end }}
           command: ["/opt/cni/bin/istio-cni-taint"]
           env:
-          - name: "TAINT_REGIST-WITH-TAINT"
-            value: "true"
           - name: "TAINT_RUN-AS-DAEMON"
             value: "true"
           - name: "TAINT_CONFIGMAP-NAME"

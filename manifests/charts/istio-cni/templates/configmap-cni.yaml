@@ -33,7 +33,7 @@ metadata:
     release: {{ .Release.Name }}
 data:
   config.properties: |
-    name=istio-cni
-    selector=k8s-app=istio-cni-node
-    namespace=kube-system
+    name: istio-cni
+    selector: k8s-app=istio-cni-node
+    namespace: kube-system
   {{- end }}
