@@ -1,7 +1,13 @@
 package taint
 
 import (
+	"context"
 	"fmt"
+	"github.com/google/uuid"
+	"go.uber.org/atomic"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
+	"os"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
@@ -27,6 +33,88 @@ type Controller struct {
 	taintsetter     *TaintSetter
 }
 
+const (
+	LeassLockName      = "istio-taint-lock"
+	LeaseLockNamespace = "kube-system"
+)
+
+type LeadElection struct {
+	Controller 	*Controller
+	cycle      *atomic.Int32
+	id			string
+	ttl        time.Duration
+}
+func NewLeadElection(tc *Controller) *LeadElection {
+	return &LeadElection{tc, atomic.NewInt32(0), uuid.New().String(), time.Second*30}
+}
+func (l *LeadElection) create() (*leaderelection.LeaderElector, error) {
+	callbacks :=leaderelection.LeaderCallbacks{
+		OnStartedLeading: func(ctx context.Context) {
+			//once leader elected it should taint all nodes at first to prevent race condition
+			log.Info("new leader elected")
+			l.Controller.RegistTaints()
+			go l.Controller.Run(ctx.Done())
+		},
+		OnStoppedLeading: func() {
+			// when leader failed, log leader failure and restart leader election
+			log.Infof("leader lost: %s", l.id)
+		},
+		OnNewLeader: func(identity string) {
+			// we're notified when new leader elected
+			if identity == l.id {
+				// I just got the lock
+				return
+			}
+			log.Infof("new leader elected: %s", identity)
+		},
+	}
+	lock := &resourcelock.LeaseLock{
+		LeaseMeta: metav1.ObjectMeta{
+			Name:      LeassLockName,
+			Namespace: LeaseLockNamespace,
+		},
+		Client: l.Controller.clientset.CoordinationV1(),
+		LockConfig: resourcelock.ResourceLockConfig{
+			Identity: l.id,
+		},
+	}
+	return leaderelection.NewLeaderElector(leaderelection.LeaderElectionConfig{
+		Lock:          lock,
+		LeaseDuration: l.ttl,
+		RenewDeadline: l.ttl / 2,
+		RetryPeriod:   l.ttl / 4,
+		Callbacks:     callbacks,
+		// When Pilot exits, the lease will be dropped. This is more likely to lead to a case where
+		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
+		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
+		ReleaseOnCancel: true,
+	})
+}
+func(l *LeadElection) Run(stop <-chan os.Signal){
+		le, err := l.create()
+		if err != nil {
+			panic("cannot create leader " + err.Error())
+		}
+		l.cycle.Inc()
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			<-stop
+			log.Info("current leader get cancelled")
+			cancel()
+		}()
+		le.Run(ctx)
+		select {
+		case <-stop:
+			// We were told to stop explicitly. Exit now
+			return
+		default:
+			cancel()
+			// Otherwise, we may have lost our lock. In practice, this is extremely rare; we need to have the lock, then lose it
+			// Typically this means something went wrong, such as API server downtime, etc
+			// If this does happen, we will start the cycle over again
+			log.Errorf("Leader election cycle %v lost. Trying again", l.cycle.Load())
+		}
+}
 func NewTaintSetterController(ts *TaintSetter) (*Controller, error) {
 	c := &Controller{
 		clientset:       ts.Client,

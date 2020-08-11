@@ -1,23 +1,15 @@
 package main
 
 import (
-	"context"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"istio.io/istio/cni/pkg/taint"
+	"istio.io/pkg/log"
+	client "k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
-
-	"github.com/google/uuid"
-	"github.com/spf13/pflag"
-	"github.com/spf13/viper"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	client "k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/tools/leaderelection"
-	"k8s.io/client-go/tools/leaderelection/resourcelock"
-
-	"istio.io/istio/cni/pkg/taint"
-	"istio.io/pkg/log"
 )
 
 type ControllerOptions struct {
@@ -29,11 +21,6 @@ var (
 	loggingOptions = log.DefaultOptions()
 )
 
-const (
-	LeassLockName      = "istio-taint-lock"
-	LeaseLockNamespace = "kube-system"
-)
-
 // Parse command line options
 func parseFlags() (options *ControllerOptions) {
 	// Parse command line flags
@@ -41,7 +28,7 @@ func parseFlags() (options *ControllerOptions) {
 
 	pflag.String("configmap-namespace", "kube-system", "the namespace of critical pod definition configmap")
 	pflag.String("configmap-name", "single", "the name of critical pod definition configmap")
-	pflag.Bool("run-as-daemon", false, "Controller will run in a loop")
+	pflag.Bool("run-as-daemon", true, "Controller will run in a loop")
 	pflag.Bool("help", false, "Print usage information")
 
 	pflag.Parse()
@@ -124,63 +111,10 @@ func main() {
 		log.Fatalf("Fatal error constructing taint controller: %+v", err)
 	}
 	if options.RunAsDaemon {
-		id := uuid.New().String()
-		stopCh := make(chan struct{})
-		//it will be run in leader for controller configuration and running
-		run := func(ctx context.Context) {
-			tc.Run(stopCh)
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		// listen for interrupts or the Linux SIGTERM signal and cancel
-		// our context, which the leader election code will observe and
-		// step down
-		ch := make(chan os.Signal, 1)
+		ch:= make(chan os.Signal, 1)
 		signal.Notify(ch, os.Interrupt, syscall.SIGTERM)
-		go func() {
-			<-ch
-			close(stopCh)
-			log.Info("Received termination, signaling shutdown")
-			cancel()
-		}()
-		lock := &resourcelock.LeaseLock{
-			LeaseMeta: metav1.ObjectMeta{
-				Name:      LeassLockName,
-				Namespace: LeaseLockNamespace,
-			},
-			Client: clientSet.CoordinationV1(),
-			LockConfig: resourcelock.ResourceLockConfig{
-				Identity: id,
-			},
-		}
-		//time settings are adopting default settings in client-go
-		leaderelection.RunOrDie(ctx, leaderelection.LeaderElectionConfig{
-			Lock:            lock,
-			ReleaseOnCancel: true,
-			LeaseDuration:   60 * time.Second,
-			RenewDeadline:   15 * time.Second,
-			RetryPeriod:     5 * time.Second,
-			Callbacks: leaderelection.LeaderCallbacks{
-				OnStartedLeading: func(ctx context.Context) {
-					//once leader elected it should taint all nodes at first to prevent race condition
-					tc.RegistTaints()
-					run(ctx)
-				},
-				OnStoppedLeading: func() {
-					// when leader failed, log leader failure and restart leader election
-					log.Infof("leader lost: %s", id)
-					os.Exit(0)
-				},
-				OnNewLeader: func(identity string) {
-					// we're notified when new leader elected
-					if identity == id {
-						// I just got the lock
-						return
-					}
-					log.Infof("new leader elected: %s", identity)
-				},
-			},
-		})
+		l := taint.NewLeadElection(tc)
+		l.Run(ch)
 	} else {
 		//check for node readiness in every node
 		nodeReadinessCheck(tc)
