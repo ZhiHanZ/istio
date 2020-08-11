@@ -1,4 +1,4 @@
-# istio node readiness gateway 
+# Istio Node Readiness Controller 
 This package is used to add readiness taint to prevent race condition during critical daemonset pod installation
 ## How it works
 It will load the configmap defined by the user which contains the information of critical labels and their namespaces
