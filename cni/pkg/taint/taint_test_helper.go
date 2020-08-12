@@ -92,8 +92,8 @@ type makeNodeArgs struct {
 	NodeCondition []v1.NodeCondition
 }
 
-func makeNodeWithTaint(args makeNodeArgs) *v1.Node {
-	node := &v1.Node{
+func makeNodeWithTaint(args makeNodeArgs) v1.Node {
+	node := v1.Node{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Node",
 			APIVersion: "v1",
@@ -174,7 +174,7 @@ var (
 	})
 )
 var (
-	testingNode = *makeNodeWithTaint(makeNodeArgs{
+	testingNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName: "foo",
 		Taints:   []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
 		NodeCondition: []v1.NodeCondition{
@@ -185,12 +185,12 @@ var (
 			},
 		},
 	})
-	plainNode = *makeNodeWithTaint(makeNodeArgs{
+	plainNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName:      "bar",
 		Taints:        []v1.Taint{},
 		NodeCondition: []v1.NodeCondition{},
 	})
-	unreadyNode = *makeNodeWithTaint(makeNodeArgs{
+	unreadyNode = makeNodeWithTaint(makeNodeArgs{
 		NodeName: "unready",
 		Taints:   []v1.Taint{},
 		NodeCondition: []v1.NodeCondition{

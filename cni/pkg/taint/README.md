@@ -32,16 +32,16 @@ namespace: kube-system
 command to create the configmap
 sample output of configmap
 
-```bash
+```yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: "istio-cni"
+  name: "istio-cni-taint"
   namespace: "kube-system"
   labels:
     app: istio-cni
 data:
-  config.properties: |
+  config: |
     name: istio-cni
     selector: app=istio
     namespace: kube-system
@@ -49,18 +49,18 @@ data:
 
 ### config the critical pods and add node readiness tolerations to it
 
-```bash
+```yaml
 Kind: Daemonset
 Metadata:
-	Name: istio-critical-pod
-	Labels:
-		app: istio
+    Name: istio-critical-pod
+    Labels:
+        app: istio
 Spec:
   ...more...
-	Toleration:
-		Key: NodeReadiness
-		Operator: Exists
-		Effect: NoSchedule
+    Toleration:
+        Key: NodeReadiness
+        Operator: Exists
+        Effect: NoSchedule
 ```
 
 ### build it as binary

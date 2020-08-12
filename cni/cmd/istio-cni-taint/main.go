@@ -179,8 +179,8 @@ func logCurrentOptions(ts *taint.TaintSetter, options *ControllerOptions) {
 	if options.RunAsDaemon {
 		log.Infof("Controller Option: Running as a Daemon.")
 	}
-	for _, cs := range ts.GetAllConfigs() {
-		log.Infof("ConfigSetting %s", cs.ToString())
+	for _, cs := range ts.Configs() {
+		log.Infof("ConfigSetting %s", cs)
 	}
 }
 

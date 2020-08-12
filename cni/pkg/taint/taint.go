@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 	v1 "k8s.io/api/core/v1"
@@ -23,7 +24,7 @@ type ConfigSettings struct {
 	LabelSelector string `yaml:"selector"`
 }
 
-func (config ConfigSettings) ToString() string {
+func (config ConfigSettings) String() string {
 	return fmt.Sprintf("name is %s, namespace is %s,  selector is %s", config.Name, config.Namespace, config.LabelSelector)
 }
 
@@ -31,12 +32,14 @@ type Options struct {
 	ConfigmapName      string
 	ConfigmapNamespace string
 }
+
 type TaintSetter struct {
 	configs []ConfigSettings // contains all configmaps information
 	Client  client.Interface
+	mutex   sync.RWMutex
 }
 
-func (ts TaintSetter) GetAllConfigs() []ConfigSettings {
+func (ts TaintSetter) Configs() []ConfigSettings {
 	return ts.configs
 }
 func NewTaintSetter(clientset client.Interface, options *Options) (ts TaintSetter, err error) {
@@ -68,7 +71,7 @@ func (ts *TaintSetter) LoadConfig(config v1.ConfigMap) {
 			log.Fatalf("not a valid label selector: %v", err)
 		}
 		ts.configs = append(ts.configs, tempset)
-		log.Infof("successfully loaded %s", tempset.ToString())
+		log.Infof("successfully loaded %s", tempset)
 	}
 }
 
@@ -86,17 +89,22 @@ func (ts TaintSetter) validTolerance(pod v1.Pod) bool {
 }
 
 //check whether current node have readiness
-func (ts TaintSetter) HasReadinessTaint(node *v1.Node) bool {
+func (ts *TaintSetter) HasReadinessTaint(node *v1.Node) bool {
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
 	for _, taint := range node.Spec.Taints {
 		if taint.Key == TaintName && taint.Effect == v1.TaintEffectNoSchedule {
 			return true
 		}
 	}
+
 	return false
 }
 
 //assumption: order of taint is not important
-func (ts TaintSetter) RemoveReadinessTaint(node *v1.Node) error {
+func (ts *TaintSetter) RemoveReadinessTaint(node *v1.Node) error {
+	ts.mutex.RLock()
+	defer ts.mutex.RUnlock()
 	updatedTaint := deleteTaint(node.Spec.Taints, &v1.Taint{Key: TaintName, Effect: v1.TaintEffectNoSchedule})
 	node.Spec.Taints = updatedTaint
 	updatedNodeWithTaint, err := ts.Client.CoreV1().Nodes().Update(context.TODO(), node, metav1.UpdateOptions{})
@@ -109,13 +117,16 @@ func (ts TaintSetter) RemoveReadinessTaint(node *v1.Node) error {
 
 // taint node with specific taint name with effect of no schedule
 //do nothing if it already have the readiness taint
-func (ts TaintSetter) AddReadinessTaint(node *v1.Node) error {
+func (ts *TaintSetter) AddReadinessTaint(node *v1.Node) error {
+	ts.mutex.Lock()
+	defer ts.mutex.Unlock()
 	for _, taint := range node.Spec.Taints {
-		if taint.Key == TaintName {
+		if taint.Key == TaintName && taint.Effect == v1.TaintEffectNoSchedule {
 			log.Debugf("%v already present on node %v", TaintName, node.Name)
 			return nil
 		}
 	}
+
 	node.Spec.Taints = append(node.Spec.Taints, v1.Taint{
 		Key:    TaintName,
 		Effect: v1.TaintEffectNoSchedule,

@@ -30,38 +30,26 @@ func fakeClientset(pods []v1.Pod, nodes []v1.Node, configMaps []v1.ConfigMap) (c
 
 //test on whether critical labels and namespace are successfully loaded
 func TestTaintSetter_LoadConfig(t *testing.T) {
-	type fields struct {
-		client kubernetes.Interface
-	}
-	type args struct {
-		config v1.ConfigMap
-	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		client kubernetes.Interface
+		config v1.ConfigMap
 		wants  map[string][]string
 	}{
 		{
 			name: "istio-cni config",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
-			},
-			args: args{
-				config: istiocniConfig,
-			},
+
+			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+
+			config: istiocniConfig,
 			wants: map[string][]string{
 				"istio-cni": {"istio-cni", "kube-system", "app=istio"},
 			},
 		},
 		{
-			name: "general config",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
-			},
-			args: args{
-				config: combinedConfig,
-			},
+			name:   "general config",
+			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			config: combinedConfig,
 			wants: map[string][]string{
 				"istio-cni": {"istio-cni", "kube-system", "app=istio"},
 				"others":    {"others", "blah", "app=others"},
@@ -73,7 +61,7 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 			ts := TaintSetter{
 				Client: fake.NewSimpleClientset(),
 			}
-			ts.LoadConfig(tt.args.config)
+			ts.LoadConfig(tt.config)
 			for _, elem := range ts.configs {
 				if tt.wants[elem.Name] == nil {
 					t.Errorf("wants to load = %v", elem.Name)
@@ -93,53 +81,42 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 }
 
 func TestTaintSetter_AddReadinessTaint(t *testing.T) {
-	type fields struct {
-		client kubernetes.Interface
-	}
-	type args struct {
-		node v1.Node
-	}
 	tests := []struct {
 		name     string
-		fields   fields
-		args     args
+		client   kubernetes.Interface
+		node     v1.Node
 		wantList []v1.Taint
 	}{
 		{
 			name: "working node already get taint",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
-			},
-			args: args{
-				testingNode,
-			},
+
+			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+
+			node: testingNode,
+
 			wantList: []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
 		},
 		{
 			name: "plain node add readiness taint",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
-			},
-			args: args{
-				plainNode,
-			},
+
+			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
+			node:   plainNode,
+
 			wantList: []v1.Taint{{Key: TaintName, Effect: v1.TaintEffectNoSchedule}},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := TaintSetter{
-				Client: tt.fields.client,
+				Client: tt.client,
 			}
-			err := ts.AddReadinessTaint(&tt.args.node)
+			err := ts.AddReadinessTaint(&tt.node)
 			if err != nil {
-				t.Errorf("error happened in readiness %v", err.Error())
-				return
+				t.Fatalf("error happened in readiness %v", err.Error())
 			}
-			updatedNode, err := ts.Client.CoreV1().Nodes().Get(context.TODO(), tt.args.node.Name, metav1.GetOptions{})
+			updatedNode, err := ts.Client.CoreV1().Nodes().Get(context.TODO(), tt.node.Name, metav1.GetOptions{})
 			if err != nil {
-				t.Errorf("error happened in readiness %v", err.Error())
-				return
+				t.Fatalf("error happened in readiness %v", err.Error())
 			}
 			if !reflect.DeepEqual(updatedNode.Spec.Taints, tt.wantList) {
 				t.Errorf("AddReadinessTaint() gotList = %v, want %v", updatedNode.Spec.Taints, tt.wantList)
@@ -148,45 +125,31 @@ func TestTaintSetter_AddReadinessTaint(t *testing.T) {
 	}
 }
 func TestTaintSetter_HasReadinessTaint(t *testing.T) {
-	type fields struct {
-		client kubernetes.Interface
-	}
-	type args struct {
-		node v1.Node
-	}
 	tests := []struct {
 		name   string
-		fields fields
-		args   args
+		client kubernetes.Interface
+		node   v1.Node
 		want   bool
 	}{
 		{
-			name: "working node already get taint",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
-			},
-			args: args{
-				testingNode,
-			},
-			want: true,
+			name:   "working node already get taint",
+			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+			node:   testingNode,
+			want:   true,
 		},
 		{
-			name: "plain node add readiness taint",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
-			},
-			args: args{
-				plainNode,
-			},
-			want: false,
+			name:   "plain node add readiness taint",
+			client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
+			node:   plainNode,
+			want:   false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := TaintSetter{
-				Client: tt.fields.client,
+				Client: tt.client,
 			}
-			hastaint := ts.HasReadinessTaint(&tt.args.node)
+			hastaint := ts.HasReadinessTaint(&tt.node)
 			if hastaint != tt.want {
 				t.Errorf("AddReadinessTaint() gotList = %v, want %v", hastaint, tt.want)
 			}
@@ -194,49 +157,35 @@ func TestTaintSetter_HasReadinessTaint(t *testing.T) {
 	}
 }
 func TestTaintSetter_RemoveReadinessTaint(t *testing.T) {
-	type fields struct {
-		client kubernetes.Interface
-	}
-	type args struct {
-		node v1.Node
-	}
 	tests := []struct {
 		name     string
-		fields   fields
-		args     args
+		client   kubernetes.Interface
+		node     v1.Node
 		wantList []v1.Taint
 	}{
 		{
-			name: "working node already get taint",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
-			},
-			args: args{
-				testingNode,
-			},
+			name:     "working node already get taint",
+			client:   fakeClientset([]v1.Pod{workingPod}, []v1.Node{testingNode}, []v1.ConfigMap{}),
+			node:     testingNode,
 			wantList: []v1.Taint{},
 		},
 		{
-			name: "plain node add readiness taint",
-			fields: fields{
-				client: fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
-			},
-			args: args{
-				plainNode,
-			},
+			name:     "plain node add readiness taint",
+			client:   fakeClientset([]v1.Pod{workingPod}, []v1.Node{plainNode}, []v1.ConfigMap{}),
+			node:     plainNode,
 			wantList: []v1.Taint{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := TaintSetter{
-				Client: tt.fields.client,
+				Client: tt.client,
 			}
-			err := ts.RemoveReadinessTaint(&tt.args.node)
+			err := ts.RemoveReadinessTaint(&tt.node)
 			if err != nil {
 				t.Errorf("error happened in readiness %v", err.Error())
 			}
-			gotNode, _ := ts.Client.CoreV1().Nodes().Get(context.TODO(), tt.args.node.Name, metav1.GetOptions{})
+			gotNode, _ := ts.Client.CoreV1().Nodes().Get(context.TODO(), tt.node.Name, metav1.GetOptions{})
 			if !reflect.DeepEqual(gotNode.Spec.Taints, tt.wantList) {
 				t.Errorf("AddReadinessTaint() gotList = %v, want %v", gotNode.Spec.Taints, tt.wantList)
 			}
