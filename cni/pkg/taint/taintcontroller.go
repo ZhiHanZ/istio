@@ -41,10 +41,10 @@ type Controller struct {
 	cachedPodsStore map[string]map[string]cache.Store // store sync with list watch given namespace and labelselector
 	nodeController  cache.Controller
 	nodeStore       cache.Store
-	taintsetter     *TaintSetter
+	taintsetter     *Setter
 }
 
-func NewTaintSetterController(ts *TaintSetter) (*Controller, error) {
+func NewTaintSetterController(ts *Setter) (*Controller, error) {
 	c := &Controller{
 		clientset:       ts.Client,
 		podWorkQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),

@@ -31,7 +31,9 @@ import (
 )
 
 //simplified taintsetter controller build upon fake sourcer, return controller and namespace, label based sourcer created by configmap
-func newMockTaintSetterController(ts *TaintSetter, nodeSource *fcache.FakeControllerSource) (c *Controller, sourcer map[string]map[string]*fcache.FakeControllerSource, e error) {
+func newMockTaintSetterController(ts *Setter,
+	nodeSource *fcache.FakeControllerSource) (c *Controller,
+	sourcer map[string]map[string]*fcache.FakeControllerSource, e error) {
 	c = &Controller{
 		clientset:       ts.Client,
 		podWorkQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -154,7 +156,7 @@ func TestController_ListAllNode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{configs: []ConfigSettings{}, Client: tt.client}
+			ts := Setter{configs: []ConfigSettings{}, Client: tt.client}
 			source := fcache.NewFakeControllerSource()
 			tc, _, err := newMockTaintSetterController(&ts, source)
 			if err != nil {
@@ -208,7 +210,7 @@ func TestController_RegistTaints(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{configs: []ConfigSettings{}, Client: tt.client}
+			ts := Setter{configs: []ConfigSettings{}, Client: tt.client}
 			source := fcache.NewFakeControllerSource()
 			tc, _, err := newMockTaintSetterController(&ts, source)
 			if err != nil {
@@ -447,7 +449,7 @@ func TestController_CheckNodeReadiness(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{configs: tt.args.configs, Client: tt.client}
+			ts := Setter{configs: tt.args.configs, Client: tt.client}
 			nodeSource := fcache.NewFakeControllerSource()
 			tc, podSources, err := newMockTaintSetterController(&ts, nodeSource)
 			if err != nil {

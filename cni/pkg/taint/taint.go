@@ -47,21 +47,21 @@ type Options struct {
 	ConfigmapNamespace string
 }
 
-type TaintSetter struct {
+type Setter struct {
 	configs []ConfigSettings // contains all configmaps information
 	Client  client.Interface
 	mutex   sync.RWMutex
 }
 
-func (ts *TaintSetter) Configs() []ConfigSettings {
+func (ts *Setter) Configs() []ConfigSettings {
 	return ts.configs
 }
-func NewTaintSetter(clientset client.Interface, options *Options) (ts *TaintSetter, err error) {
+func NewTaintSetter(clientset client.Interface, options *Options) (ts *Setter, err error) {
 	configmap, err := clientset.CoreV1().ConfigMaps(options.ConfigmapNamespace).Get(context.TODO(), options.ConfigmapName, metav1.GetOptions{})
 	if err != nil {
 		return ts, err
 	}
-	ts = &TaintSetter{
+	ts = &Setter{
 		configs: []ConfigSettings{},
 		Client:  clientset,
 	}
@@ -70,7 +70,7 @@ func NewTaintSetter(clientset client.Interface, options *Options) (ts *TaintSett
 }
 
 // load corresponding configmap's critical labels and their namespace
-func (ts *TaintSetter) LoadConfig(config v1.ConfigMap) {
+func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	log.Debugf("Loading configmap %s in %s", config.Name, config.Namespace)
 	ts.configs = make([]ConfigSettings, 0) //clear previous one
 	for key, value := range config.Data {
@@ -91,7 +91,7 @@ func (ts *TaintSetter) LoadConfig(config v1.ConfigMap) {
 
 //only pod with NodeReadiness Toleracnce with effect no schedule or
 //a generalized tolerance with noschedule effect can be considered
-func (ts *TaintSetter) validTolerance(pod v1.Pod) bool {
+func (ts *Setter) validTolerance(pod v1.Pod) bool {
 	for _, toleration := range pod.Spec.Tolerations {
 		if (toleration.Key == TaintName || toleration.Key == "") &&
 			toleration.Operator == v1.TolerationOpExists &&
@@ -103,7 +103,7 @@ func (ts *TaintSetter) validTolerance(pod v1.Pod) bool {
 }
 
 //check whether current node have readiness
-func (ts *TaintSetter) HasReadinessTaint(node *v1.Node) bool {
+func (ts *Setter) HasReadinessTaint(node *v1.Node) bool {
 	ts.mutex.Lock()
 	defer ts.mutex.Unlock()
 	for _, taint := range node.Spec.Taints {
@@ -116,7 +116,7 @@ func (ts *TaintSetter) HasReadinessTaint(node *v1.Node) bool {
 }
 
 //assumption: order of taint is not important
-func (ts *TaintSetter) RemoveReadinessTaint(node *v1.Node) error {
+func (ts *Setter) RemoveReadinessTaint(node *v1.Node) error {
 	ts.mutex.RLock()
 	defer ts.mutex.RUnlock()
 	updatedTaint := deleteTaint(node.Spec.Taints, &v1.Taint{Key: TaintName, Effect: v1.TaintEffectNoSchedule})
@@ -131,7 +131,7 @@ func (ts *TaintSetter) RemoveReadinessTaint(node *v1.Node) error {
 
 // taint node with specific taint name with effect of no schedule
 //do nothing if it already have the readiness taint
-func (ts *TaintSetter) AddReadinessTaint(node *v1.Node) error {
+func (ts *Setter) AddReadinessTaint(node *v1.Node) error {
 	ts.mutex.Lock()
 	defer ts.mutex.Unlock()
 	for _, taint := range node.Spec.Taints {

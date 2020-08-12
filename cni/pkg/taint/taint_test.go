@@ -72,7 +72,7 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{
+			ts := Setter{
 				Client: fake.NewSimpleClientset(),
 			}
 			ts.LoadConfig(tt.config)
@@ -121,7 +121,7 @@ func TestTaintSetter_AddReadinessTaint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{
+			ts := Setter{
 				Client: tt.client,
 			}
 			err := ts.AddReadinessTaint(&tt.node)
@@ -160,7 +160,7 @@ func TestTaintSetter_HasReadinessTaint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{
+			ts := Setter{
 				Client: tt.client,
 			}
 			hastaint := ts.HasReadinessTaint(&tt.node)
@@ -192,7 +192,7 @@ func TestTaintSetter_RemoveReadinessTaint(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ts := TaintSetter{
+			ts := Setter{
 				Client: tt.client,
 			}
 			err := ts.RemoveReadinessTaint(&tt.node)
