@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"gopkg.in/yaml.v2"
@@ -75,16 +76,18 @@ func (ts *Setter) LoadConfig(config v1.ConfigMap) {
 	ts.configs = make([]ConfigSettings, 0) //clear previous one
 	for key, value := range config.Data {
 		log.Debugf("Loading %s ", key)
-		var tempst ConfigSettings
+		var tempst []ConfigSettings
 		err := yaml.Unmarshal([]byte(value), &tempst)
 		if err != nil {
 			log.Fatalf("cannot unmarshal data : %v", err)
 		}
-		_, err = metav1.ParseToLabelSelector(tempst.LabelSelector)
-		if err != nil {
-			log.Fatalf("not a valid label selector: %v", err)
+		for _, elem := range tempst {
+			for _, selector := range strings.Split(elem.LabelSelector, ",") {
+				selector = strings.TrimSpace(selector)
+				_, err = metav1.ParseToLabelSelector(selector)
+				ts.configs = append(ts.configs, ConfigSettings{Namespace: elem.Namespace, Name: elem.Name, LabelSelector: selector})
+			}
 		}
-		ts.configs = append(ts.configs, tempst)
 		log.Infof("successfully loaded %s", tempst)
 	}
 }

@@ -39,15 +39,15 @@ Layout
 ```bash
 ./
 configs/
-    Istio-cni.properties
+   config
 ```
 
 ```bash
-Istio-cni.properties file
+config file
 
-name: istio-cni
-selector: app=istio
-namespace: kube-system
+- name: istio-cni
+  selector: app=istio
+  namespace: kube-system
 ```
 
 command to create the configmap
@@ -63,10 +63,27 @@ metadata:
     app: istio-cni
 data:
   config: |
-    name: istio-cni
-    selector: app=istio
-    namespace: kube-system
+    - name: istio-cni
+      selector: app=istio
+      namespace: kube-system
 ```
+
+supports multi label in one
+
+ ```yaml
+ apiVersion: v1
+ kind: ConfigMap
+ metadata:
+   name: "istio-cni-taint"
+   namespace: "kube-system"
+   labels:
+     app: istio-cni
+ data:
+   config: |
+     - name: istio-cni
+       selector: app=istio, app=istio-cni
+       namespace: kube-system
+ ```
 
 ### config the critical pods and add node readiness tolerations to it
 

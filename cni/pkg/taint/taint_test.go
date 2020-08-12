@@ -48,7 +48,7 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 		name   string
 		client kubernetes.Interface
 		config v1.ConfigMap
-		wants  map[string][]string
+		wants  []ConfigSettings
 	}{
 		{
 			name: "istio-cni config",
@@ -56,17 +56,36 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
 
 			config: istiocniConfig,
-			wants: map[string][]string{
-				"istio-cni": {"istio-cni", "kube-system", "app=istio"},
+			wants: []ConfigSettings{
+				{Name: "istio-cni", Namespace: "kube-system", LabelSelector: "app=istio"},
 			},
 		},
 		{
 			name:   "general config",
 			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
 			config: combinedConfig,
-			wants: map[string][]string{
-				"istio-cni": {"istio-cni", "kube-system", "app=istio"},
-				"others":    {"others", "blah", "app=others"},
+			wants: []ConfigSettings{
+				{Name: "istio-cni", Namespace: "kube-system", LabelSelector: "app=istio"},
+				{Name: "others", Namespace: "blah", LabelSelector: "app=others"},
+			},
+		},
+		{
+			name:   "list config",
+			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			config: listConfig,
+			wants: []ConfigSettings{
+				{Name: "critical-test1", Namespace: "test1", LabelSelector: "critical=test1"},
+				{Name: "addon=test2", Namespace: "test2", LabelSelector: "addon=test2"},
+			},
+		},
+		{
+			name:   "multi config",
+			client: fakeClientset([]v1.Pod{}, []v1.Node{}, []v1.ConfigMap{istiocniConfig}),
+			config: multiLabelConfig,
+			wants: []ConfigSettings{
+				{Name: "critical-test1", Namespace: "test1", LabelSelector: "critical=test1"},
+				{Name: "critical-test1", Namespace: "test1", LabelSelector: "app=istio"},
+				{Name: "addon=test2", Namespace: "test2", LabelSelector: "addon=test2"},
 			},
 		},
 	}
@@ -76,19 +95,8 @@ func TestTaintSetter_LoadConfig(t *testing.T) {
 				Client: fake.NewSimpleClientset(),
 			}
 			ts.LoadConfig(tt.config)
-			for _, elem := range ts.configs {
-				if tt.wants[elem.Name] == nil {
-					t.Errorf("wants to load = %v", elem.Name)
-				}
-				if tt.wants[elem.Name][0] != elem.Name {
-					t.Errorf("wants to load name = %v found %v", elem.Name, tt.wants[elem.Name][0])
-				}
-				if tt.wants[elem.Name][1] != elem.Namespace {
-					t.Errorf("wants to load namespace = %v found %v", elem.Namespace, tt.wants[elem.Name][1])
-				}
-				if tt.wants[elem.Name][2] != elem.LabelSelector {
-					t.Errorf("wants to load selector = %v found %v", elem.LabelSelector, tt.wants[elem.Name][2])
-				}
+			if !reflect.DeepEqual(ts.Configs(), tt.wants) {
+				t.Fatalf("expected config: %v, actually %v", tt.wants, ts.configs)
 			}
 		})
 	}

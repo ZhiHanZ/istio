@@ -131,22 +131,47 @@ var (
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni": `name: istio-cni
-selector: app=istio 
-namespace: kube-system`,
+			"istio-cni": `- name: istio-cni
+  selector: app=istio 
+  namespace: kube-system`,
 		},
 	})
 	combinedConfig = makeConfigMap(makeConfigMapArgs{
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni": `name: istio-cni
-selector: app=istio
-namespace: kube-system`,
-			"others": `name: others
-selector: app=others	
-namespace: blah`,
+			"istio-cni": `- name: istio-cni
+  selector: app=istio
+  namespace: kube-system`,
+			"others": `- name: others
+  selector: app=others	
+  namespace: blah`,
 		},
+	})
+	listConfig = makeConfigMap(makeConfigMapArgs{
+		ConfigName: "node.readiness",
+		Namespace:  "kube-system",
+		Data: map[string]string{
+			"istio-cni": `- name: critical-test1
+  selector: critical=test1
+  namespace: test1
+- name: addon=test2
+  selector: addon=test2
+  namespace: test2
+`,
+		},
+	})
+	multiLabelConfig = makeConfigMap(makeConfigMapArgs{
+		ConfigName: "node.readiness",
+		Namespace:  "kube-system",
+		Data: map[string]string{
+			"istio-cni": `- name: critical-test1
+  selector: critical=test1, app=istio
+  namespace: test1
+- name: addon=test2
+  selector: addon=test2
+  namespace: test2
+`},
 	})
 )
 
