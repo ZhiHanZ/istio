@@ -193,7 +193,7 @@ func clientSetup() (clientset *client.Clientset, err error) {
 }
 
 // Log human-readable output describing the current filter and option selection
-func logCurrentOptions(ts *taint.TaintSetter, options *ControllerOptions) {
+func logCurrentOptions(ts *taint.Setter, options *ControllerOptions) {
 	if options.RunAsDaemon {
 		log.Infof("Controller Option: Running as a Daemon.")
 	}
