@@ -1,3 +1,17 @@
+// Copyright 2020 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package taint
 
 import (
@@ -39,15 +53,15 @@ type TaintSetter struct {
 	mutex   sync.RWMutex
 }
 
-func (ts TaintSetter) Configs() []ConfigSettings {
+func (ts *TaintSetter) Configs() []ConfigSettings {
 	return ts.configs
 }
-func NewTaintSetter(clientset client.Interface, options *Options) (ts TaintSetter, err error) {
+func NewTaintSetter(clientset client.Interface, options *Options) (ts *TaintSetter, err error) {
 	configmap, err := clientset.CoreV1().ConfigMaps(options.ConfigmapNamespace).Get(context.TODO(), options.ConfigmapName, metav1.GetOptions{})
 	if err != nil {
 		return ts, err
 	}
-	ts = TaintSetter{
+	ts = &TaintSetter{
 		configs: []ConfigSettings{},
 		Client:  clientset,
 	}
@@ -61,23 +75,23 @@ func (ts *TaintSetter) LoadConfig(config v1.ConfigMap) {
 	ts.configs = make([]ConfigSettings, 0) //clear previous one
 	for key, value := range config.Data {
 		log.Debugf("Loading %s ", key)
-		var tempset ConfigSettings
-		err := yaml.Unmarshal([]byte(value), &tempset)
+		var tempst ConfigSettings
+		err := yaml.Unmarshal([]byte(value), &tempst)
 		if err != nil {
 			log.Fatalf("cannot unmarshal data : %v", err)
 		}
-		_, err = metav1.ParseToLabelSelector(tempset.LabelSelector)
+		_, err = metav1.ParseToLabelSelector(tempst.LabelSelector)
 		if err != nil {
 			log.Fatalf("not a valid label selector: %v", err)
 		}
-		ts.configs = append(ts.configs, tempset)
-		log.Infof("successfully loaded %s", tempset)
+		ts.configs = append(ts.configs, tempst)
+		log.Infof("successfully loaded %s", tempst)
 	}
 }
 
 //only pod with NodeReadiness Toleracnce with effect no schedule or
 //a generalized tolerance with noschedule effect can be considered
-func (ts TaintSetter) validTolerance(pod v1.Pod) bool {
+func (ts *TaintSetter) validTolerance(pod v1.Pod) bool {
 	for _, toleration := range pod.Spec.Tolerations {
 		if (toleration.Key == TaintName || toleration.Key == "") &&
 			toleration.Operator == v1.TolerationOpExists &&
@@ -154,7 +168,7 @@ func deleteTaint(taints []v1.Taint, taintToDelete *v1.Taint) []v1.Taint {
 //node readiness validation by checking the last heartbeat status
 func GetNodeLatestReadiness(node v1.Node) bool {
 	currentCondition := node.Status.Conditions
-	if currentCondition == nil || len(currentCondition) == 0 {
+	if len(currentCondition) == 0 {
 		return false
 	}
 	sort.Slice(currentCondition, func(i, j int) bool {

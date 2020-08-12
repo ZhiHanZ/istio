@@ -1,3 +1,17 @@
+// Copyright 2020 Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package taint
 
 import (
@@ -53,7 +67,6 @@ func NewTaintSetterController(ts *TaintSetter) (*Controller, error) {
 		c.podController = append(c.podController, tempcontroller)
 	}
 	nodeListWatch := cache.NewFilteredListWatchFromClient(c.clientset.CoreV1().RESTClient(), "nodes", metav1.NamespaceAll, func(options *metav1.ListOptions) {
-		return
 	})
 	c.nodeStore, c.nodeController = buildNodeControler(c, nodeListWatch)
 	return c, nil
@@ -110,8 +123,8 @@ func buildNodeControler(c *Controller, nodeListWatch cache.ListerWatcher) (cache
 func reTaintNodeByPod(obj interface{}, c *Controller) error {
 	pod, ok := obj.(*v1.Pod)
 	if !ok {
-		log.Errorf("Error decoding object, invalid type.")
-		return fmt.Errorf("Error decoding object, invalid type.")
+		log.Errorf("error decoding object, invalid type.")
+		return fmt.Errorf("error decoding object, invalid type")
 	}
 	node, err := c.getNodeByPod(pod)
 	if err != nil {
@@ -251,47 +264,45 @@ func (tc Controller) CheckNodeReadiness(node v1.Node) bool {
 func (tc Controller) processReadyPod(pod *v1.Pod) error {
 	node, err := tc.getNodeByPod(pod)
 	if err != nil {
-		return fmt.Errorf("Cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
+		return fmt.Errorf("cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
 	}
 	if GetNodeLatestReadiness(*node) && tc.CheckNodeReadiness(*node) {
 		err = tc.taintsetter.RemoveReadinessTaint(node)
 		if err != nil {
-			return fmt.Errorf("Cannot remove node readiness taint: %s ", err.Error())
+			return fmt.Errorf("cannot remove node readiness taint: %s ", err.Error())
 		}
 		log.Infof("Readiness Taint removed to the node %v because all pods inside is ready", node.Name)
 		return nil
-	} else {
-		if tc.taintsetter.HasReadinessTaint(node) {
-			log.Infof("node %v has readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
-			return nil
-		} else {
-			err = tc.taintsetter.AddReadinessTaint(node)
-			if err != nil {
-				return fmt.Errorf("Cannot add taint to node: %s", err.Error())
-			}
-			log.Infof("node %v add readiness taint because some other pods is not ready", node.Name)
-			return nil
-		}
 	}
+	if tc.taintsetter.HasReadinessTaint(node) {
+		log.Infof("node %v has readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
+		return nil
+	}
+	err = tc.taintsetter.AddReadinessTaint(node)
+	if err != nil {
+		return fmt.Errorf("cannot add taint to node: %s", err.Error())
+	}
+	log.Infof("node %v add readiness taint because some other pods is not ready", node.Name)
+	return nil
 }
 
 //if pod is unready, it should be tainted
 func (tc Controller) processUnReadyPod(pod *v1.Pod) error {
 	node, err := tc.getNodeByPod(pod)
 	if err != nil {
-		return fmt.Errorf("Cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
+		return fmt.Errorf("cannot get node by  %s in namespace %s : %s", pod.Name, pod.Namespace, err)
 	}
 	if tc.taintsetter.HasReadinessTaint(node) {
 		log.Infof("node %v has readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
 		return nil
-	} else {
-		err = tc.taintsetter.AddReadinessTaint(node)
-		if err != nil {
-			return fmt.Errorf("Cannot add taint to node: %s", err.Error())
-		}
-		log.Infof("node %+v add readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
-		return nil
 	}
+	err = tc.taintsetter.AddReadinessTaint(node)
+	if err != nil {
+		return fmt.Errorf("cannot add taint to node: %s", err.Error())
+	}
+	log.Infof("node %+v add readiness taint because pod %v in namespace %v is not ready", node.Name, pod.Name, pod.Namespace)
+	return nil
+
 }
 func (tc Controller) ListAllNode() []*v1.Node {
 	items := tc.nodeStore.List()
@@ -322,7 +333,7 @@ func (tc Controller) ProcessNode(node *v1.Node) error {
 		if tc.CheckNodeReadiness(*node) {
 			err := tc.taintsetter.RemoveReadinessTaint(node)
 			if err != nil {
-				return fmt.Errorf("Cannot remove readiness taint in node: %s", node.Name)
+				return fmt.Errorf("cannot remove readiness taint in node: %s", node.Name)
 			}
 			log.Infof("node %+v remove readiness taint because it is ready", node.Name)
 		} else {
@@ -331,7 +342,7 @@ func (tc Controller) ProcessNode(node *v1.Node) error {
 			} else {
 				err := tc.taintsetter.AddReadinessTaint(node)
 				if err != nil {
-					return fmt.Errorf("Cannot add readiness taint in node: %s", node.Name)
+					return fmt.Errorf("cannot add readiness taint in node: %s", node.Name)
 				}
 				log.Infof("node %v add readiness taint because it is not ready", node.Name)
 			}
@@ -342,7 +353,7 @@ func (tc Controller) ProcessNode(node *v1.Node) error {
 		} else {
 			err := tc.taintsetter.AddReadinessTaint(node)
 			if err != nil {
-				return fmt.Errorf("Cannot add readiness taint in node: %s", node.Name)
+				return fmt.Errorf("cannot add readiness taint in node: %s", node.Name)
 			}
 			log.Infof("node %v add readiness taint because it is not ready", node.Name)
 		}
