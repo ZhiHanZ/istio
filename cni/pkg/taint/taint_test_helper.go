@@ -131,7 +131,7 @@ var (
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni.properties": `name: istio-cni
+			"istio-cni": `name: istio-cni
 selector: app=istio 
 namespace: kube-system`,
 		},
@@ -140,10 +140,10 @@ namespace: kube-system`,
 		ConfigName: "node.readiness",
 		Namespace:  "kube-system",
 		Data: map[string]string{
-			"istio-cni.properties": `name: istio-cni
+			"istio-cni": `name: istio-cni
 selector: app=istio
 namespace: kube-system`,
-			"others.properties": `name: others
+			"others": `name: others
 selector: app=others	
 namespace: blah`,
 		},

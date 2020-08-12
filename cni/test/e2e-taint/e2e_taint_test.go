@@ -127,14 +127,14 @@ func waitForConfigMapDeletion(client client.Interface, name, namespace string) e
 }
 func waitForDaemonSetDeletion(client client.Interface, name, namespace string) error {
 	err := retry.UntilSuccess(func() error {
-		_, err2 := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
-		if err2 == nil {
+		_, err := client.AppsV1().DaemonSets(namespace).Get(context.TODO(), name, metav1.GetOptions{})
+		if err == nil {
 			return fmt.Errorf("configmap %s should be deleted", name)
 		}
-		if errors.IsNotFound(err2) {
+		if errors.IsNotFound(err) {
 			return nil
 		}
-		return err2
+		return err
 	}, retry.Converge(1), retry.Timeout(TimeDuration), retry.Delay(TimeDelay))
 	return err
 }

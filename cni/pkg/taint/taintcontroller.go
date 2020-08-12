@@ -231,7 +231,7 @@ func (tc Controller) listCandidatePods(nodeName string, namespace string, select
 		return nil
 	}
 	if _, ok := tc.cachedPodsStore[namespace][selector]; !ok {
-		return []*v1.Pod{}
+		return nil
 	}
 	podList := make([]*v1.Pod, 0)
 	for _, item := range tc.cachedPodsStore[namespace][selector].List() {

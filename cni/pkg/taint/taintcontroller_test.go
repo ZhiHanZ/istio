@@ -33,7 +33,7 @@ import (
 //simplified taintsetter controller build upon fake sourcer, return controller and namespace, label based sourcer created by configmap
 func newMockTaintSetterController(ts *Setter,
 	nodeSource *fcache.FakeControllerSource) (c *Controller,
-	sourcer map[string]map[string]*fcache.FakeControllerSource, e error) {
+	sourcer map[string]map[string]*fcache.FakeControllerSource) {
 	c = &Controller{
 		clientset:       ts.Client,
 		podWorkQueue:    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
@@ -54,7 +54,7 @@ func newMockTaintSetterController(ts *Setter,
 		c.podController = append(c.podController, tempcontroller)
 	}
 	c.nodeStore, c.nodeController = buildNodeControler(c, nodeSource)
-	return c, sourcer, nil
+	return c, sourcer
 }
 
 type podInfo struct {
@@ -158,17 +158,14 @@ func TestController_ListAllNode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := Setter{configs: []ConfigSettings{}, Client: tt.client}
 			source := fcache.NewFakeControllerSource()
-			tc, _, err := newMockTaintSetterController(&ts, source)
-			if err != nil {
-				t.Fatalf("cannot constrict taint controller")
-			}
+			tc, _ := newMockTaintSetterController(&ts, source)
 			stop := make(chan struct{})
 			for _, name := range tt.nodeNames {
 				source.Add(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}})
 			}
 			go tc.Run(stop)
 			// Let's wait for the controller to finish processing the things we just added.
-			err = retry.UntilSuccess(func() error {
+			err := retry.UntilSuccess(func() error {
 				if len(tc.ListAllNode()) != len(tt.nodeNames) {
 					return fmt.Errorf("found %v nodes, expected to have %v nodes", len(tt.nodeNames), len(tc.ListAllNode()))
 				}
@@ -212,10 +209,7 @@ func TestController_RegistTaints(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := Setter{configs: []ConfigSettings{}, Client: tt.client}
 			source := fcache.NewFakeControllerSource()
-			tc, _, err := newMockTaintSetterController(&ts, source)
-			if err != nil {
-				t.Fatalf("cannot constrict taint controller")
-			}
+			tc, _ := newMockTaintSetterController(&ts, source)
 			stop := make(chan struct{})
 			for _, name := range tt.nodeNames {
 				source.Add(&v1.Node{ObjectMeta: metav1.ObjectMeta{Name: name}})
@@ -223,7 +217,7 @@ func TestController_RegistTaints(t *testing.T) {
 			go tc.Run(stop)
 			tc.RegistTaints()
 			// Let's wait for the controller to finish processing the things we just added.
-			err = retry.UntilSuccess(func() error {
+			err := retry.UntilSuccess(func() error {
 				if len(tc.ListAllNode()) != len(tt.nodeNames) {
 					return fmt.Errorf("found %v nodes, expected to have %v nodes", len(tt.nodeNames), len(tc.ListAllNode()))
 				}
@@ -451,10 +445,7 @@ func TestController_CheckNodeReadiness(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ts := Setter{configs: tt.args.configs, Client: tt.client}
 			nodeSource := fcache.NewFakeControllerSource()
-			tc, podSources, err := newMockTaintSetterController(&ts, nodeSource)
-			if err != nil {
-				t.Fatalf("cannot constrict taint controller")
-			}
+			tc, podSources := newMockTaintSetterController(&ts, nodeSource)
 			stop := make(chan struct{})
 			go tc.Run(stop)
 			currNode := mockNodeGenerator(tt.args.node)
@@ -469,7 +460,7 @@ func TestController_CheckNodeReadiness(t *testing.T) {
 					}
 				}
 			}
-			err = retry.UntilSuccess(func() error {
+			err := retry.UntilSuccess(func() error {
 				if tc.CheckNodeReadiness(currNode) != tt.want {
 					return fmt.Errorf("want readiness %v, actually: %v", tt.want, tc.CheckNodeReadiness(currNode))
 				}
