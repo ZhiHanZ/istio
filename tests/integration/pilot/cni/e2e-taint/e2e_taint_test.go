@@ -96,12 +96,10 @@ func createDaemonset(client *client.Interface, fileLocation string) (daemonset *
 //build configmap given name and namespace in cmd.ControllerOptions and location
 func buildConfigIfNotExists(clientSet client.Interface, options taint.Options, fileLocation string) (configmap *v1.ConfigMap, err error) {
 	err = clientSet.CoreV1().ConfigMaps(options.ConfigmapNamespace).Delete(context.TODO(), options.ConfigmapName, metav1.DeleteOptions{})
-	fmt.Println(filepath.Abs("./"))
 	currpath, err := filepath.Abs("./")
 	cmd := exec.Command("kubectl", "create", "configmap",
 		options.ConfigmapName, "-n", options.ConfigmapNamespace,
 		"--from-file="+fmt.Sprintf("%s/%s/", currpath, fileLocation))
-	fmt.Println(cmd.String())
 	err = cmd.Run()
 	err = retry.UntilSuccess(func() error {
 		configmap, err = clientSet.CoreV1().ConfigMaps(options.ConfigmapNamespace).Get(context.TODO(), options.ConfigmapName, metav1.GetOptions{})
